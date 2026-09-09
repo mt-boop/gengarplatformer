@@ -1,81 +1,99 @@
 using UnityEngine;
 
-public class PlayerController : MonoBehaviour
+public class SnappyPlayerController : MonoBehaviour
 {
-    [Header("Ground Check Settings")]
-    public Transform groundCheckpoint;
+    [Header("Movement Settings")]
+    public float moveSpeed = 12f;
+    public float sprintSpeed = 20f;
+    public float acceleration = 90f;
+    public float deceleration = 60f;
+
+    [Header("Jump Settings")]
+    public float jumpForce = 16f;
+    public float fallMultiplier = 2.5f;
+    public float lowJumpMultiplier = 2f;
+
+    [Header("Ground Check")]
+    public Transform groundCheck;
     public float groundCheckRadius = 0.2f;
     public LayerMask groundLayer;
-    private bool isGrounded;
 
-    [Header("Movement Settings")]
-    public float moveSpeed = 8f; 
-    public float jumpSpeed = 12f; 
     private Rigidbody2D rb2d;
     private float horizontalInput;
+    private bool isSprinting;
+    private bool isGrounded;
     private bool jumpRequested;
 
-
-    [ Header("Smoother movements")]
-    public float acceleration = 50f; 
-    public float deceleration = 40f;  
-    public float velPower = 0.9f;   
-
-    void Start()
+    private void Awake()
     {
         rb2d = GetComponent<Rigidbody2D>();
     }
 
-    void Update()
+    private void Update()
     {
-      
-        if (groundCheckpoint != null)
-        {
-            isGrounded = Physics2D.OverlapCircle(groundCheckpoint.position, groundCheckRadius, groundLayer);
-        }
-
        
         horizontalInput = Input.GetAxisRaw("Horizontal");
+        isSprinting = Input.GetKey(KeyCode.LeftShift); 
 
-       
-        if (Input.GetButtonDown("Jump") && isGrounded)
-        {
-            jumpRequested = true;
-        }
-
-        isGrounded = Physics2D.OverlapCircle(groundCheckpoint.position, groundCheckRadius, groundLayer);
-
-         horizontalInput = Input.GetAxisRaw("Horizontal");
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
             jumpRequested = true;
         }
     }
+    private void HandleMovement()
+    {
+        
+        float currentTargetSpeed = isSprinting ? sprintSpeed : moveSpeed;
+        float targetVelocityX = horizontalInput * currentTargetSpeed;
 
-    void FixedUpdate()
+        
+        float rate = (Mathf.Abs(targetVelocityX) > 0.01f) ? acceleration : deceleration;
+
+        
+        float newVelocityX = Mathf.MoveTowards(rb2d.linearVelocity.x, targetVelocityX, rate * Time.fixedDeltaTime);
+        rb2d.linearVelocity = new Vector2(newVelocityX, rb2d.linearVelocity.y);
+    }
+    private void HandleJumping()
     {
        
-        if (isGrounded)
-        {
-            float targetspeed = horizontalInput * moveSpeed;
-            float accelrate = (Mathf.Abs(targetspeed) > 0.01) ? acceleration : deceleration;
-    float newVelX = Mathf.MoveTowards(rb2d.linearVelocity.x, targetspeed, accelrate * Time.fixedDeltaTime);
-            rb2d.linearVelocity = new Vector2(newVelX, rb2d.linearVelocity.y);
-        }
-        else
-        {
-            
-            rb2d.linearVelocity = new Vector2(rb2d.linearVelocity.x, rb2d.linearVelocity.y);
-        }
-
-     
         if (jumpRequested)
         {
-            rb2d.linearVelocity = new Vector2(rb2d.linearVelocity.x, jumpSpeed);
-            jumpRequested = false; 
+            rb2d.linearVelocity = new Vector2(rb2d.linearVelocity.x, jumpForce);
+            jumpRequested = false;
+        }
+
+        if (rb2d.linearVelocity.y < 0)
+        {
+            rb2d.linearVelocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.fixedDeltaTime;
+        }
+       
+        else if (rb2d.linearVelocity.y > 0 && !Input.GetButton("Jump"))
+        {
+            rb2d.linearVelocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.fixedDeltaTime;
         }
     }
 
+
+
+
+
+    private void FixedUpdate()
+    {
+        
+        if (groundCheck != null)
+        {
+            isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
+        }
+
+      
+        HandleMovement();
+        HandleJumping();
+    }
+
+   
+
     
+    }
+
+ 
     
-}
